@@ -26,10 +26,13 @@
  * SOFTWARE.
 */
 #include "c_buffer.h"
-#include "common.h"
 #include "string.h"
+#include <stdio.h>
 
 #define MODULO_INC(value, increment, modulus) (((value) + (increment)) % (modulus))
+#ifndef LOG
+#define LOG(f_, ...) printf((f_), ##__VA_ARGS__)
+#endif
 
 static inline size_t MODULO_DEC(size_t value, size_t decrement, size_t modulus)
 {
