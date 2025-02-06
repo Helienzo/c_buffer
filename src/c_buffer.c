@@ -26,10 +26,13 @@
  * SOFTWARE.
 */
 #include "c_buffer.h"
-#include "common.h"
 #include "string.h"
+#include <stdio.h>
 
 #define MODULO_INC(value, increment, modulus) (((value) + (increment)) % (modulus))
+#ifndef LOG
+#define LOG(f_, ...) printf((f_), ##__VA_ARGS__)
+#endif
 
 static inline size_t MODULO_DEC(size_t value, size_t decrement, size_t modulus)
 {
@@ -106,7 +109,7 @@ int32_t cBufferPrepend(cBuffer_t *inst, uint8_t *data, size_t data_size) {
 
     // This cast is safe as the inst null check is allready done
     if ((size_t)cBufferAvailableForWrite(inst) < data_size) {
-        return C_BUFFER_INSUFFICENT;
+        return C_BUFFER_INSUFFICIENT;
     }
 
     // Look for the special case were the buffer is empty
@@ -189,7 +192,7 @@ int32_t cBufferPrependByte(cBuffer_t *inst, uint8_t data) {
 
     // This cast is safe as the inst null check is allready done
     if ((size_t)cBufferAvailableForWrite(inst) < 1) {
-        return C_BUFFER_INSUFFICENT;
+        return C_BUFFER_INSUFFICIENT;
     }
 
     // Look for the special case were the buffer is empty
@@ -225,7 +228,7 @@ int32_t cBufferAppend(cBuffer_t *inst, uint8_t *data, size_t data_size) {
 
     // This cast is safe as the inst null check is allready done
     if ((size_t)cBufferAvailableForWrite(inst) < data_size) {
-        return C_BUFFER_INSUFFICENT;
+        return C_BUFFER_INSUFFICIENT;
     }
 
     // Check if we need to do a wrap copy
@@ -277,8 +280,12 @@ int32_t cBufferReadAll(cBuffer_t *inst, uint8_t *data, size_t max_read_size) {
 
     int32_t num_bytes_in_buffer = cBufferAvailableForRead(inst);
 
-    if (num_bytes_in_buffer > max_read_size) {
-        return C_BUFFER_INSUFFICENT;
+    if (num_bytes_in_buffer < C_BUFFER_SUCCESS) {
+        return num_bytes_in_buffer;
+    }
+
+    if ((size_t)num_bytes_in_buffer > max_read_size) {
+        return C_BUFFER_INSUFFICIENT;
     }
 
     // Check if there is a wrap in buffer
@@ -342,6 +349,79 @@ uint8_t cBufferReadByte(cBuffer_t *inst) {
     inst->tail = MODULO_INC(inst->tail, 1, inst->size);
 
     return data;
+}
+
+int32_t cBufferReadBytes(cBuffer_t *inst, uint8_t *data, size_t read_size) {
+    if (inst == NULL || data == NULL) {
+        return C_BUFFER_NULL_ERROR;
+    }
+
+    int32_t num_bytes_in_buffer = cBufferAvailableForRead(inst);
+
+    if (num_bytes_in_buffer < C_BUFFER_SUCCESS) {
+        return num_bytes_in_buffer;
+    }
+
+    if (read_size > (size_t)num_bytes_in_buffer) {
+        return C_BUFFER_MISMATCH;
+    }
+
+
+    // Check if there is a wrap in buffer
+    if (inst->head < inst->tail) {
+        size_t bytes_in_first = inst->size - inst->tail;
+        if (read_size <= bytes_in_first) {
+            // All requested data is in the first block.
+            // First read the data up to the wrap
+#ifdef NO_MEMCPY
+            size_t data_ind = 0;
+            for (size_t ind = inst->tail; ind < inst->size; ind++) {
+                data[data_ind] = inst->data[ind];
+                data_ind++;
+            }
+#else
+            memcpy(data, inst->data + inst->tail, bytes_in_first);
+#endif
+        } else {
+            // Data is divided before and after wrap
+#ifdef NO_MEMCPY
+            size_t data_ind = 0;
+            for (size_t ind = inst->tail; ind < inst->size; ind++) {
+                data[data_ind] = inst->data[ind];
+                data_ind++;
+            }
+#else
+            memcpy(data, inst->data + inst->tail, bytes_in_first);
+#endif
+
+        // Then read the remaining data after the wrap
+#ifdef NO_MEMCPY
+            for (size_t ind = 0; ind < read_size - bytes_in_first; ind++) {
+                data[data_ind] = inst->data[ind];
+                data_ind++;
+            }
+#else
+            memcpy(data + bytes_in_first, inst->data, read_size - bytes_in_first);
+#endif
+        }
+    } else {
+        // No data wrap, just read the data into the buffer
+#ifdef NO_MEMCPY
+        size_t buffer_ind = inst->tail;
+        for (size_t ind = 0; ind < read_size ; ind++) {
+            data[ind] = inst->data[buffer_ind];
+            buffer_ind++;
+        }
+#else
+        // Faster memcpy version
+        memcpy(data, inst->data + inst->tail, read_size);
+#endif
+    }
+
+
+    inst->tail = MODULO_INC(inst->tail, read_size, inst->size);
+
+    return read_size;
 }
 
 int32_t cBufferClear(cBuffer_t *inst) {
