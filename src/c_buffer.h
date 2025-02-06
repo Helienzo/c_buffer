@@ -29,7 +29,8 @@
 #ifndef C_BUFFER_H
 #define C_BUFFER_H
 
-#include "pico/stdlib.h"
+#include <stdint.h>
+#include <stddef.h>
 
 // The available number of bytes in the C buffer will be one less than the size of the array
 #define C_BUFFER_ARRAY_OVERHEAD 1
@@ -40,9 +41,9 @@
 
 typedef enum {
     C_BUFFER_SUCCESS,
-    C_BUFFER_NULL_ERROR  = -301,
-    C_BUFFER_INSUFFICENT = -302,
-    C_BUFFER_MISSMATCH   = -303,
+    C_BUFFER_NULL_ERROR   = -301,
+    C_BUFFER_INSUFFICIENT = -302,
+    C_BUFFER_MISMATCH     = -303,
 } cBufferErr_t;
 
 typedef struct {
@@ -134,6 +135,16 @@ int32_t cBufferReadAll(cBuffer_t *inst, uint8_t *data, size_t max_read_size);
 uint8_t cBufferReadByte(cBuffer_t *inst);
 
 /**
+ * Read the next byte from the buffer
+ * Note: Using this function on emtpy buffers will return 0
+ * Input: Pointer to buffer instance
+ * Input: Pointer to data to read into
+ * Input: Number of bytes to read
+ * Returns: cBufferErr_t or num of bytes read
+ */
+int32_t cBufferReadBytes(cBuffer_t *inst, uint8_t *data, size_t read_size);
+
+/**
  * Clear a buffer, this resets the head and tail to first element of buffer
  * Input: Pointer to buffer instance
  * Returns: cBufferErr_t
@@ -142,14 +153,14 @@ int32_t cBufferClear(cBuffer_t *inst);
 
 /**
  * Rotate the buffer to make sure the data is available in continous memory
- * Input: Pointer to buffe instance
+ * Input: Pointer to buffer instance
  * Returns: cBufferErr_t
  */
 int32_t cBufferContiguate(cBuffer_t* inst);
 
 /**
  * Get pointer to the current first element in the buffer
- * Input: Pointer to buffe instance
+ * Input: Pointer to buffer instance
  * Returns: Pointer to element or null if invalid or wrap in buffer
  */
 uint8_t *cBufferGetReadPointer(cBuffer_t* inst);
@@ -157,7 +168,7 @@ uint8_t *cBufferGetReadPointer(cBuffer_t* inst);
 /**
  * Get pointer to the current next write element in the buffer
  * Note: There is no garantuee that the data is continous
- * Input: Pointer to buffe instance
+ * Input: Pointer to buffer instance
  * Returns: Pointer to element
  */
 uint8_t *cBufferGetWritePointer(cBuffer_t* inst);
@@ -165,7 +176,7 @@ uint8_t *cBufferGetWritePointer(cBuffer_t* inst);
 /**
  * Increment the amount of data in the buffer without writing anything to the buffer
  * Note: There is no garantuee that the data is continous
- * Input: Pointer to buffe instance
+ * Input: Pointer to buffer instance
  * Input: Number of bytes to append to tail
  * Returns: Pointer to element
  */
