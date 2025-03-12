@@ -185,6 +185,24 @@ int32_t cBufferPrepend(cBuffer_t *inst, uint8_t *data, size_t data_size) {
     return data_size;
 }
 
+int32_t cBufferPrependUint16(cBuffer_t *inst, uint16_t data) {
+    uint8_t tmp[2];
+    tmp[0] = (uint8_t)(data >> 8);
+    tmp[1] = (uint8_t)(data);
+
+    return cBufferPrepend(inst, tmp, sizeof(tmp));
+}
+
+int32_t cBufferPrependUint32(cBuffer_t *inst, uint32_t data) {
+    uint8_t tmp[4];
+    tmp[0] = (uint8_t)(data >> 24);
+    tmp[1] = (uint8_t)(data >> 16);
+    tmp[2] = (uint8_t)(data >> 8);
+    tmp[3] = (uint8_t)(data);
+
+    return cBufferPrepend(inst, tmp, sizeof(tmp));
+}
+
 int32_t cBufferPrependByte(cBuffer_t *inst, uint8_t data) {
     if (inst == NULL) {
         return C_BUFFER_NULL_ERROR;
@@ -271,6 +289,30 @@ int32_t cBufferAppend(cBuffer_t *inst, uint8_t *data, size_t data_size) {
     }
 
     return data_size;
+}
+
+int32_t cBufferAppendByte(cBuffer_t *inst, uint8_t data) {
+    if (inst == NULL) {
+        return C_BUFFER_NULL_ERROR;
+    }
+
+    // This cast is safe as the inst null check is allready done
+    if ((size_t)cBufferAvailableForWrite(inst) < 1) {
+        return C_BUFFER_INSUFFICIENT;
+    }
+
+    // Look for the special case were the buffer is empty
+    if (inst->head == inst->tail) {
+        // For good reasons we want to reset the buffer when this happens.
+        inst->head = 0;
+        inst->tail = 0;
+    }
+
+    // Check if we need to do a wrap copy
+    inst->data[inst->head] = data;
+    inst->head = MODULO_INC(inst->head, 1, inst->size);
+
+    return 1;
 }
 
 int32_t cBufferReadAll(cBuffer_t *inst, uint8_t *data, size_t max_read_size) {
@@ -445,7 +487,7 @@ int32_t cBufferContiguate(cBuffer_t* inst)
         // Make sure that tail points to the start of the buffer
         inst->head = 0;
         inst->tail = 0;
-    } else if (inst->head < inst->tail) {
+    } else if (inst->head < inst->tail && inst->head != 0) {
         int32_t num_of_bytes = cBufferAvailableForRead(inst);
 
         uint8_t* last_element  = &inst->data[inst->size - 1];
@@ -482,13 +524,26 @@ int32_t cBufferContiguate(cBuffer_t* inst)
     return C_BUFFER_SUCCESS;
 }
 
+int32_t cBufferIsContigous(cBuffer_t* inst) {
+    if (inst == NULL) {
+        return C_BUFFER_NULL_ERROR;
+    }
+
+    // Check if there is a wrap in the buffer
+    if (inst->head < inst->tail && inst->head != 0) {
+        return C_BUFFER_WRAPED;
+    }
+
+    return C_BUFFER_SUCCESS;
+}
+
 uint8_t *cBufferGetReadPointer(cBuffer_t* inst) {
     if (inst == NULL) {
         return NULL;
     }
 
     // Protect from buffers with wraps
-    if (inst->head < inst->tail) {
+    if (inst->head < inst->tail && inst->head != 0) {
         return NULL;
     }
 
