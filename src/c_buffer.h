@@ -40,7 +40,8 @@
  */
 
 typedef enum {
-    C_BUFFER_SUCCESS,
+    C_BUFFER_WRAPED       = 1,
+    C_BUFFER_SUCCESS      = 0,
     C_BUFFER_NULL_ERROR   = -301,
     C_BUFFER_INSUFFICIENT = -302,
     C_BUFFER_MISMATCH     = -303,
@@ -101,6 +102,22 @@ int32_t cBufferAvailableForWrite(cBuffer_t* inst);
 int32_t cBufferPrepend(cBuffer_t *inst, uint8_t *data, size_t data_size);
 
 /**
+ * Write a uint32 at the start of the buffer in big endian format
+ * Input: Pointer to buffer instance
+ * Input: Data to write
+ * Returns: cBufferErr_t or num bytes written
+ */
+int32_t cBufferPrependUint32(cBuffer_t *inst, uint32_t data);
+
+/**
+ * Write a uint16 at the start of the buffer in big endian format
+ * Input: Pointer to buffer instance
+ * Input: Data to write
+ * Returns: cBufferErr_t or num bytes written
+ */
+int32_t cBufferPrependUint16(cBuffer_t *inst, uint16_t data);
+
+/**
  * Write a single byte at the start of the buffer
  * Input: Pointer to buffer instance
  * Input: Byte to write
@@ -116,6 +133,14 @@ int32_t cBufferPrependByte(cBuffer_t *inst, uint8_t data);
  * Returns: cBufferErr_t or 1 if full
  */
 int32_t cBufferAppend(cBuffer_t *inst, uint8_t *data, size_t data_size);
+
+/**
+ * Write the new data at the end of the buffer
+ * Input: Pointer to buffer instance
+ * Input: Byte to write
+ * Returns: cBufferErr_t or 1 if one byte was written
+ */
+int32_t cBufferAppendByte(cBuffer_t *inst, uint8_t data);
 
 /**
  * Read data from the buffer
@@ -157,6 +182,13 @@ int32_t cBufferClear(cBuffer_t *inst);
  * Returns: cBufferErr_t
  */
 int32_t cBufferContiguate(cBuffer_t* inst);
+
+/**
+ * Check if the data is available in continous memory
+ * Input: Pointer to buffer instance
+ * Returns: cBufferErr_t, SUCCESS indicates that the data is contigous
+ */
+int32_t cBufferIsContigous(cBuffer_t* inst);
 
 /**
  * Get pointer to the current first element in the buffer
