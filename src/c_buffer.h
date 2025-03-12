@@ -102,19 +102,17 @@ int32_t cBufferAvailableForWrite(cBuffer_t* inst);
 int32_t cBufferPrepend(cBuffer_t *inst, uint8_t *data, size_t data_size);
 
 /**
- * Write a uint32 at the start of the buffer in big endian
+ * Write a uint32 at the start of the buffer in big endian format
  * Input: Pointer to buffer instance
- * Input: Pointer to data to write
- * Input: Size of data to write
+ * Input: Data to write
  * Returns: cBufferErr_t or num bytes written
  */
 int32_t cBufferPrependUint32(cBuffer_t *inst, uint32_t data);
 
 /**
- * Write a uint16 at the start of the buffer in big endian
+ * Write a uint16 at the start of the buffer in big endian format
  * Input: Pointer to buffer instance
- * Input: Pointer to data to write
- * Input: Size of data to write
+ * Input: Data to write
  * Returns: cBufferErr_t or num bytes written
  */
 int32_t cBufferPrependUint16(cBuffer_t *inst, uint16_t data);
