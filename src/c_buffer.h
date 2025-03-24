@@ -209,9 +209,17 @@ uint8_t *cBufferGetWritePointer(cBuffer_t* inst);
  * Increment the amount of data in the buffer without writing anything to the buffer
  * Note: There is no garantuee that the data is continous
  * Input: Pointer to buffer instance
- * Input: Number of bytes to append to tail
- * Returns: Pointer to element
+ * Input: Number of bytes to append to head
+ * Returns: cBufferErr_t
  */
 int32_t cBufferEmptyWrite(cBuffer_t* inst, size_t num_bytes);
+
+/**
+ * Decrement the amount of data in the buffer without copying any data
+ * Input: Pointer to buffer instance
+ * Input: Number of bytes to remove from to tail
+ * Returns: cBufferErr_t
+ */
+int32_t cBufferEmptyRead(cBuffer_t* inst, size_t num_bytes);
 
 #endif /* C_BUFFER_H */

@@ -567,3 +567,23 @@ int32_t cBufferEmptyWrite(cBuffer_t* inst, size_t num_bytes) {
 
     return num_bytes;
 }
+
+int32_t cBufferEmptyRead(cBuffer_t* inst, size_t num_bytes) {
+    if (inst == NULL) {
+        return C_BUFFER_NULL_ERROR;
+    }
+
+    int32_t num_bytes_in_buffer = cBufferAvailableForRead(inst);
+
+    if (num_bytes_in_buffer < C_BUFFER_SUCCESS) {
+        return num_bytes_in_buffer;
+    }
+
+    if (num_bytes > (size_t)num_bytes_in_buffer) {
+        return C_BUFFER_MISMATCH;
+    }
+
+    inst->tail = MODULO_INC(inst->tail, num_bytes, inst->size);
+
+    return num_bytes;
+}
