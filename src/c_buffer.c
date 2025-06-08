@@ -34,6 +34,10 @@
 #define LOG(f_, ...) printf((f_), ##__VA_ARGS__)
 #endif
 
+#ifndef LOG_DEBUG
+#define LOG_DEBUG(f_, ...)// printf((f_), ##__VA_ARGS__)
+#endif
+
 static inline size_t MODULO_DEC(size_t value, size_t decrement, size_t modulus)
 {
     return (value + modulus - (decrement % modulus)) % modulus;
@@ -381,7 +385,7 @@ uint8_t cBufferReadByte(cBuffer_t *inst) {
 
     // Protect from empty buffers
     if (cBufferEmpty(inst)) {
-        LOG("Reading from empty buffer!\n");
+        LOG_DEBUG("Reading from empty buffer!\n");
         return 0;
     }
 
