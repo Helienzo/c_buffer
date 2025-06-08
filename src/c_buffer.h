@@ -26,8 +26,13 @@
  * SOFTWARE.
 */
 
+
 #ifndef C_BUFFER_H
 #define C_BUFFER_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #include <stdint.h>
 #include <stddef.h>
@@ -222,4 +227,7 @@ int32_t cBufferEmptyWrite(cBuffer_t* inst, size_t num_bytes);
  */
 int32_t cBufferEmptyRead(cBuffer_t* inst, size_t num_bytes);
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* C_BUFFER_H */
