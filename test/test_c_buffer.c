@@ -158,6 +158,226 @@ int main(void) {
         printf("Test 5: ReadAll after contiguate returned \"%s\".\n", smallOut);
     }
 
+    /********* Test 6: Contiguate - Empty Buffer *********/
+    {
+        cBuffer_t cb_test;
+        uint8_t testBuffer[SMALL_BUFFER_SIZE];
+        ret = cBufferInit(&cb_test, testBuffer, SMALL_BUFFER_SIZE);
+        assert(ret == C_BUFFER_SUCCESS);
+
+        ret = cBufferContiguate(&cb_test);
+        assert(ret == C_BUFFER_SUCCESS);
+        assert(cb_test.head == 0);
+        assert(cb_test.tail == 0);
+        printf("Test 6: Contiguate on empty buffer successful.\n");
+    }
+
+    /********* Test 7: Contiguate - Already Contiguous *********/
+    {
+        cBuffer_t cb_test;
+        uint8_t testBuffer[SMALL_BUFFER_SIZE];
+        ret = cBufferInit(&cb_test, testBuffer, SMALL_BUFFER_SIZE);
+        assert(ret == C_BUFFER_SUCCESS);
+
+        const char *data = "HELLO";
+        ret = cBufferAppend(&cb_test, (uint8_t*)data, strlen(data));
+        assert(ret == (int32_t)strlen(data));
+
+        // Already contiguous (tail=0, head=5)
+        ret = cBufferContiguate(&cb_test);
+        assert(ret == C_BUFFER_SUCCESS);
+
+        uint8_t readOut[SMALL_BUFFER_SIZE];
+        ret = cBufferReadAll(&cb_test, readOut, SMALL_BUFFER_SIZE);
+        readOut[ret] = '\0';
+        assert(strcmp((char*)readOut, "HELLO") == 0);
+        printf("Test 7: Contiguate on already contiguous buffer successful.\n");
+    }
+
+    /********* Test 8: Contiguate - Overlap Case (tail_bytes < head_bytes) *********/
+    {
+        cBuffer_t cb_test;
+        uint8_t testBuffer[SMALL_BUFFER_SIZE];  // 10 bytes
+        ret = cBufferInit(&cb_test, testBuffer, SMALL_BUFFER_SIZE);
+        assert(ret == C_BUFFER_SUCCESS);
+        // Create wrapped state with overlap condition: tail=8, head=6
+        // This gives us: tail_bytes=2 (data at [8,9]), head_bytes=6 (data at [0-5])
+        // Overlap case because tail_bytes < head_bytes
+        memset(testBuffer, 0, SMALL_BUFFER_SIZE);
+        cb_test.data[8] = 'X';
+        cb_test.data[9] = 'Y';
+        cb_test.data[0] = '1';
+        cb_test.data[1] = '2';
+        cb_test.data[2] = '3';
+        cb_test.data[3] = '4';
+        cb_test.data[4] = '5';
+        cb_test.data[5] = '6';
+        cb_test.tail = 8;
+        cb_test.head = 6;
+
+        available = cBufferAvailableForRead(&cb_test);
+        assert(available == 8);
+        printf("Test 8: Created overlap condition: tail_bytes=2, head_bytes=6.\n");
+
+        ret = cBufferContiguate(&cb_test);
+        assert(ret == C_BUFFER_SUCCESS);
+        assert(cb_test.tail == 0);
+        assert(cb_test.head == 8);
+
+        uint8_t overlapOut[SMALL_BUFFER_SIZE];
+        ret = cBufferReadAll(&cb_test, overlapOut, SMALL_BUFFER_SIZE);
+        overlapOut[ret] = '\0';
+        printf("Test 8: After contiguate (overlap), data: \"%s\" (expected \"XY123456\").\n", overlapOut);
+        assert(strcmp((char*)overlapOut, "XY123456") == 0);
+    }
+
+    /********* Test 9: Contiguate - Fast Path (tail_bytes > head_bytes) *********/
+    {
+        cBuffer_t cb_test;
+        uint8_t testBuffer[SMALL_BUFFER_SIZE];
+        ret = cBufferInit(&cb_test, testBuffer, SMALL_BUFFER_SIZE);
+        assert(ret == C_BUFFER_SUCCESS);
+        printf("Test 9: Testing fast path (tail_bytes > head_bytes).\n");
+
+        // Direct setup: tail=6, head=2
+        cb_test.tail = 6;
+        cb_test.head = 2;
+        // Data at [6,7,8,9] = "ABCD" (4 bytes at end)
+        // Data at [0,1] = "XY" (2 bytes at start)
+        testBuffer[6] = 'A';
+        testBuffer[7] = 'B';
+        testBuffer[8] = 'C';
+        testBuffer[9] = 'D';
+        testBuffer[0] = 'X';
+        testBuffer[1] = 'Y';
+        // tail_bytes = 10-6 = 4
+        // head_bytes = 2
+        // NO OVERLAP: tail_bytes (4) > head_bytes (2)
+
+        available = cBufferAvailableForRead(&cb_test);
+        assert(available == 6);
+        printf("Test 9: Created fast path condition: tail_bytes=4, head_bytes=2.\n");
+
+        ret = cBufferContiguate(&cb_test);
+        assert(ret == C_BUFFER_SUCCESS);
+        assert(cb_test.tail == 0);
+        assert(cb_test.head == 6);
+
+        uint8_t fastOut[SMALL_BUFFER_SIZE];
+        ret = cBufferReadAll(&cb_test, fastOut, SMALL_BUFFER_SIZE);
+        fastOut[ret] = '\0';
+        printf("Test 9: After contiguate (fast path), data: \"%s\" (expected \"ABCDXY\").\n", fastOut);
+        assert(strcmp((char*)fastOut, "ABCDXY") == 0);
+    }
+
+    /********* Test 10: Contiguate - Very Small Buffer (< CBUFFER_TEMP_SIZE) *********/
+    {
+        #define TINY_BUFFER_SIZE 6
+        cBuffer_t cb_test;
+        uint8_t testBuffer[TINY_BUFFER_SIZE];
+        ret = cBufferInit(&cb_test, testBuffer, TINY_BUFFER_SIZE);
+        assert(ret == C_BUFFER_SUCCESS);
+        printf("Test 10: Testing very small buffer (size=%d < temp_size=8).\n", TINY_BUFFER_SIZE);
+
+        // Create wrapped state: tail=4, head=2
+        cb_test.tail = 4;
+        cb_test.head = 2;
+        // Data at [4,5] = "AB" (2 bytes at end)
+        // Data at [0,1] = "XY" (2 bytes at start)
+        testBuffer[4] = 'A';
+        testBuffer[5] = 'B';
+        testBuffer[0] = 'X';
+        testBuffer[1] = 'Y';
+
+        available = cBufferAvailableForRead(&cb_test);
+        assert(available == 4);
+
+        ret = cBufferContiguate(&cb_test);
+        assert(ret == C_BUFFER_SUCCESS);
+        assert(cb_test.tail == 0);
+        assert(cb_test.head == 4);
+
+        uint8_t tinyOut[TINY_BUFFER_SIZE];
+        ret = cBufferReadAll(&cb_test, tinyOut, TINY_BUFFER_SIZE);
+        tinyOut[ret] = '\0';
+        printf("Test 10: After contiguate (tiny buffer), data: \"%s\" (expected \"ABXY\").\n", tinyOut);
+        assert(strcmp((char*)tinyOut, "ABXY") == 0);
+    }
+
+    /********* Test 11: Contiguate - Single Byte Sections *********/
+    {
+        cBuffer_t cb_test;
+        uint8_t testBuffer[SMALL_BUFFER_SIZE];
+        ret = cBufferInit(&cb_test, testBuffer, SMALL_BUFFER_SIZE);
+        assert(ret == C_BUFFER_SUCCESS);
+        printf("Test 11: Testing single byte sections.\n");
+
+        // Create: tail=9, head=1 (1 byte at end, 1 byte at start)
+        cb_test.tail = 9;
+        cb_test.head = 1;
+        testBuffer[9] = 'Z';
+        testBuffer[0] = 'A';
+
+        available = cBufferAvailableForRead(&cb_test);
+        assert(available == 2);
+
+        ret = cBufferContiguate(&cb_test);
+        assert(ret == C_BUFFER_SUCCESS);
+        assert(cb_test.tail == 0);
+        assert(cb_test.head == 2);
+
+        uint8_t singleOut[SMALL_BUFFER_SIZE];
+        ret = cBufferReadAll(&cb_test, singleOut, SMALL_BUFFER_SIZE);
+        singleOut[ret] = '\0';
+        printf("Test 11: After contiguate (single bytes), data: \"%s\" (expected \"ZA\").\n", singleOut);
+        assert(strcmp((char*)singleOut, "ZA") == 0);
+    }
+
+    /********* Test 12: Contiguate - Nearly Full Buffer with Overlap *********/
+    {
+        cBuffer_t cb_test;
+        uint8_t testBuffer[SMALL_BUFFER_SIZE];  // 10 bytes
+        ret = cBufferInit(&cb_test, testBuffer, SMALL_BUFFER_SIZE);
+        assert(ret == C_BUFFER_SUCCESS);
+        printf("Test 12: Testing nearly full buffer with overlap.\n");
+
+        // Create wrapped state: tail=3, head=2
+        // This gives us: tail_bytes=7 (data at [3,4,5,6,7,8,9]), head_bytes=2 (data at [0,1])
+        // Total used = 9 bytes out of 10 (nearly full)
+        // But this is NOT overlap since tail_bytes > head_bytes
+
+        // Let's create: tail=9, head=8
+        // tail_bytes=1 (data at [9]), head_bytes=8 (data at [0-7])
+        // Total used = 9 bytes (nearly full), overlap case since tail_bytes < head_bytes
+        memset(testBuffer, 0, SMALL_BUFFER_SIZE);
+        cb_test.data[9] = 'Z';
+        cb_test.data[0] = '1';
+        cb_test.data[1] = '2';
+        cb_test.data[2] = '3';
+        cb_test.data[3] = '4';
+        cb_test.data[4] = '5';
+        cb_test.data[5] = '6';
+        cb_test.data[6] = '7';
+        cb_test.data[7] = '8';
+        cb_test.tail = 9;
+        cb_test.head = 8;
+
+        available = cBufferAvailableForRead(&cb_test);
+        assert(available == 9);
+        printf("Test 12: Created nearly full overlap: tail_bytes=1, head_bytes=8, total=9/%d.\n", SMALL_BUFFER_SIZE);
+
+        ret = cBufferContiguate(&cb_test);
+        assert(ret == C_BUFFER_SUCCESS);
+        assert(cb_test.tail == 0);
+        assert(cb_test.head == 9);
+
+        uint8_t fullOut[SMALL_BUFFER_SIZE];
+        ret = cBufferReadAll(&cb_test, fullOut, SMALL_BUFFER_SIZE);
+        fullOut[ret] = '\0';
+        printf("Test 12: After contiguate (nearly full), data: \"%s\" (expected \"Z12345678\").\n", fullOut);
+        assert(strcmp((char*)fullOut, "Z12345678") == 0);
+    }
+
     printf("=== All tests passed! ===\n");
     return 0;
 }

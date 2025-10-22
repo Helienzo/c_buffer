@@ -486,12 +486,45 @@ int32_t cBufferContiguate(cBuffer_t* inst)
         return C_BUFFER_NULL_ERROR;
     }
 
-    // Check if there is a wrap in the buffer, or if it is empty
+    // Empty buffer - just reset pointers
     if (cBufferEmpty(inst)) {
-        // Make sure that tail points to the start of the buffer
         inst->head = 0;
         inst->tail = 0;
-    } else if (inst->head < inst->tail && inst->head != 0) {
+        return C_BUFFER_SUCCESS;
+    }
+
+#if C_BUFFER_FAST_UNSAFE == 1
+    // Use fast but unsafe VLA based method
+     if (inst->head >= inst->tail || inst->head == 0) {
+         return C_BUFFER_SUCCESS;
+     }
+
+    // Buffer is wrapped: [0..head-1: newer data] [head..tail-1: unused] [tail..size-1: older data]
+    // Goal: [0..tail_bytes-1: older data] [tail_bytes..total-1: newer data] [rest: unused]
+
+    size_t tail_bytes = inst->size - inst->tail;  // Bytes in the tail section (older data)
+    size_t head_bytes = inst->head;                // Bytes in the head section (newer data)
+
+    // Use VLA to temporarily store head section
+    // We always store head_bytes since it's at the start and needs to be moved out of the way
+    uint8_t temp[head_bytes];
+
+    // Step 1: Save head section (newer data) to temporary buffer
+    memcpy(temp, &inst->data[0], head_bytes);
+
+    // Step 2: Move tail section (older data) to the start
+    memmove(&inst->data[0], &inst->data[inst->tail], tail_bytes);
+
+    // Step 3: Move head section from temp to its final position (after tail data)
+    memcpy(&inst->data[tail_bytes], temp, head_bytes);
+
+    // Update pointers
+    inst->tail = 0;
+    inst->head = tail_bytes + head_bytes;
+
+#else
+    // Use slow but safe rotating contiguate
+    if (inst->head < inst->tail && inst->head != 0) {
         int32_t num_of_bytes = cBufferAvailableForRead(inst);
 
         uint8_t* last_element  = &inst->data[inst->size - 1];
@@ -524,6 +557,7 @@ int32_t cBufferContiguate(cBuffer_t* inst)
     } else {
         return C_BUFFER_SUCCESS;
     }
+#endif
 
     return C_BUFFER_SUCCESS;
 }

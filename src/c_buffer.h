@@ -40,6 +40,10 @@ extern "C" {
 // The available number of bytes in the C buffer will be one less than the size of the array
 #define C_BUFFER_ARRAY_OVERHEAD 1
 
+#ifndef C_BUFFER_FAST_UNSAFE
+#define C_BUFFER_FAST_UNSAFE (1)
+#endif /* C_BUFFER_FAST_UNSAFE */
+
 /**
  * This module manages connections data streams.
  */
